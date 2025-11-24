@@ -1,9 +1,7 @@
-version: "3.9"
- 
 volumes:
   dependency-track:
   pgdata:
- 
+#deploy postgres
 services:
   postgres:
     image: postgres:15
@@ -14,52 +12,44 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-        reservations:
-          memory: 256m
- 
+#deploy apiserver
   dtrack-apiserver:
     image: dependencytrack/apiserver
     environment:
-      ALPINE_DATABASE_MODE: external
-      ALPINE_DATABASE_URL: jdbc:postgresql://postgres:5432/dtrack
-      ALPINE_DATABASE_DRIVER: org.postgresql.Driver
-      ALPINE_DATABASE_USERNAME: dtrack
-      ALPINE_DATABASE_PASSWORD: changeme
-      # AJUSTE CRÍTICO: Bajado a 2g para que quepa en tu VM de 4g
-      EXTRA_JAVA_OPTIONS: "-Xmx2g"
-      ALPINE_DATABASE_POOL_ENABLED: "true"
-      ALPINE_DATABASE_POOL_MAX_SIZE: 20
-      ALPINE_DATABASE_POOL_MIN_IDLE: 10
-      ALPINE_DATABASE_POOL_IDLE_TIMEOUT: 300000
-      ALPINE_DATABASE_POOL_MAX_LIFETIME: 600000
+      - ALPINE_DATABASE_MODE=external
+      - ALPINE_DATABASE_URL=jdbc:postgresql://postgres:5432/dtrack
+      - ALPINE_DATABASE_DRIVER=org.postgresql.Driver
+      - ALPINE_DATABASE_USERNAME=dtrack
+      - ALPINE_DATABASE_PASSWORD=changeme
+      - EXTRA_JAVA_OPTIONS=-Xmx4g                #This line is important, otherwise, the API will not work
+      - ALPINE_DATABASE_POOL_ENABLED=true
+      - ALPINE_DATABASE_POOL_MAX_SIZE=20
+      - ALPINE_DATABASE_POOL_MIN_IDLE=10
+      - ALPINE_DATABASE_POOL_IDLE_TIMEOUT=300000
+      - ALPINE_DATABASE_POOL_MAX_LIFETIME=600000
     deploy:
       resources:
         limits:
-          # Límite ajustado a 3GB para dejar 1GB al OS y a Postgres
-          memory: 3072m
+          memory: 12288m
         reservations:
-          memory: 2048m
+        memory: 8192m
       restart_policy:
         condition: on-failure
     ports:
-      - "8081:8080"
+      - '8081:8080'
     volumes:
       - dependency-track:/data
     depends_on:
       - postgres
     restart: unless-stopped
- 
+
+  #deploy frontend
   dtrack-frontend:
     image: dependencytrack/frontend
     depends_on:
       - dtrack-apiserver
     environment:
-      # Asegúrate de que este puerto coincida con el mapeo del apiserver (8081)
-      API_BASE_URL: http://localhost:8081
+      - API_BASE_URL=http://192.168.52.105:8081
     ports:
       - "8080:8080"
     restart: unless-stopped
